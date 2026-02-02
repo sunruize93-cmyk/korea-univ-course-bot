@@ -2,7 +2,7 @@
 
 Automated Python script for monitoring and registering for courses on the Korea University Course Registration System (Sugang).
 
-## 📢 Manifesto (初心)
+## 📢 Manifesto
 
 **"We all pay the same tuition. We deserve to take the classes we actually want."**
 
@@ -10,7 +10,7 @@ Let's be real: course registration shouldn't be a lottery based on who has the f
 
 This tool is designed to **level the playing field**. It's not about hacking; it's about automating the boring stuff so you can get the education you paid for.
 
-### ⚠️ Heads Up (风险提示)
+### ⚠️ Heads Up
 With great power comes great responsibility.
 *   **Don't be reckless**: If you spam the server too hard, you *will* get blocked.
 *   **Use common sense**: I wrote this code to help you, but I can't take the fall if the school admin gets mad. Use it wisely, grab your courses, and enjoy your semester.
