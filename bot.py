@@ -1,227 +1,235 @@
+import asyncio
 import time
 import random
 import json
+import aiohttp
+from loguru import logger
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
+from fake_useragent import UserAgent
 
-class KupidBot:
-    def __init__(self, config, logger):
+from ntp_utils import TimeSynchronizer
+
+class SugangBot:
+    """Handles initial login via Selenium to get secure cookies."""
+    def __init__(self, config):
         self.config = config
-        self.logger = logger
         self.driver = None
         self.wait = None
-        self.is_logged_in = False
+        self.cookies = {}
 
     def initialize_driver(self):
-        """Initialize the Chrome WebDriver with options."""
-        self.logger.info("Initializing WebDriver...")
+        logger.info("Initializing Selenium WebDriver for login...")
         chrome_options = Options()
-        
         if self.config.get("headless", False):
             chrome_options.add_argument("--headless")
         
-        # Anti-detection measures
+        # Anti-detection
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-        chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
         
-        try:
-            self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-            self.wait = WebDriverWait(self.driver, 10)
-            
-            # Execute CDP commands to prevent detection
-            self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-                "source": """
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => undefined
-                    })
-                """
-            })
-            self.logger.info("WebDriver initialized successfully.")
-        except Exception as e:
-            self.logger.error(f"Failed to initialize WebDriver: {e}")
-            raise
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        self.wait = WebDriverWait(self.driver, 20)
 
     def login(self):
-        """Handle login process."""
         try:
-            self.logger.info("Navigating to login page...")
-            self.driver.get("https://kupid.korea.ac.kr") # Redirects to portal login
+            logger.info("Navigating to login page...")
+            self.driver.get("https://sugang.korea.ac.kr")
             
-            # TODO: UPDATE THESE SELECTORS BASED ON ACTUAL PAGE SOURCE
-            # Note: These are placeholder IDs. You must inspect the KUPID login page 
-            # and update 'id' and 'pw' with the actual HTML element IDs.
+            # --- CRITICAL: USER MUST UPDATE THESE SELECTORS ---
+            # Inspect the page and update these IDs
             USERNAME_FIELD_ID = "id"  
             PASSWORD_FIELD_ID = "pw"
-            LOGIN_BUTTON_ID = "btn_login" # or equivalent xpath
+            # --------------------------------------------------
 
-            self.logger.info("Waiting for login fields...")
-            username_input = self.wait.until(EC.presence_of_element_located((By.ID, USERNAME_FIELD_ID)))
-            password_input = self.driver.find_element(By.ID, PASSWORD_FIELD_ID)
-            
-            # Human-like typing
-            for char in self.config["username"]:
-                username_input.send_keys(char)
-                time.sleep(random.uniform(0.05, 0.2))
-            
-            time.sleep(random.uniform(0.3, 0.7))
-            
-            for char in self.config["password"]:
-                password_input.send_keys(char)
-                time.sleep(random.uniform(0.05, 0.2))
-            
-            self.logger.info("Credentials entered. Attempting login...")
-            
-            # Check for CAPTCHA
-            # If there is a captcha image, we might need to pause and let user solve it
-            # or use an OCR service. For this version, we'll pause if we detect it.
+            logger.info("Waiting for login fields...")
             try:
-                # Placeholder for captcha element
-                captcha_img = self.driver.find_element(By.ID, "captcha_image_id") 
-                if captcha_img.is_displayed():
-                    self.logger.warning("CAPTCHA detected! Please solve it manually in the browser window.")
-                    self.logger.info("Waiting 30 seconds for manual CAPTCHA solution...")
-                    time.sleep(30)
-            except NoSuchElementException:
-                pass
-
-            # Click login
-            login_btn = self.driver.find_element(By.ID, LOGIN_BUTTON_ID) # Or By.XPATH, etc.
-            login_btn.click()
-            
-            # Wait for successful login indicator (e.g., logout button or main menu)
-            # Adjust selector for successful login check
-            self.wait.until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, "Log out")))
-            self.is_logged_in = True
-            self.logger.info("Login successful!")
-            
-        except TimeoutException:
-            self.logger.error("Login timed out. Please check your network or selectors.")
-            # Allow manual login if automation fails
-            self.logger.info("Waiting 60s for manual login intervention...")
-            time.sleep(60)
-            if self.driver.current_url != "https://kupid.korea.ac.kr": # basic check
-                 self.is_logged_in = True
-        except Exception as e:
-            self.logger.error(f"Login failed: {e}")
-
-    def navigate_to_registration(self):
-        """Navigate to the course registration page."""
-        # This logic highly depends on the menu structure of KUPID (usually frames or iframes)
-        self.logger.info("Navigating to course registration menu...")
-        # Example: Click 'Registration' -> 'Course Registration'
-        # You might need to switch_to.frame if the site uses frames
-        pass 
-
-    def search_course(self, course_code):
-        """Search for a specific course."""
-        self.logger.info(f"Searching for course: {course_code}")
-        
-        # Placeholder selectors - UPDATE THESE
-        SEARCH_INPUT_ID = "course_code_input"
-        SEARCH_BTN_ID = "search_button"
-        
-        try:
-            search_input = self.driver.find_element(By.ID, SEARCH_INPUT_ID)
-            search_input.clear()
-            search_input.send_keys(course_code)
-            
-            self.driver.find_element(By.ID, SEARCH_BTN_ID).click()
-            time.sleep(random.uniform(1, 2)) # Wait for AJAX
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"Error searching course {course_code}: {e}")
-            return False
-
-    def check_availability_and_register(self, course_info):
-        """Check if slots are available and register."""
-        course_code = course_info["course_code"]
-        
-        # Find the row corresponding to the course
-        # This usually involves finding a table row <tr> that contains the course code
-        # and checking a specific column for 'Capacity' vs 'Enrolled'
-        
-        try:
-            # Example logic: Find row by text
-            # xpath = f"//tr[contains(., '{course_code}')]"
-            # row = self.driver.find_element(By.XPATH, xpath)
-            
-            # Check availability column (e.g., 5th column)
-            # available_text = row.find_element(By.XPATH, "./td[5]").text
-            # current, total = map(int, available_text.split('/'))
-            
-            # MOCK implementation for demonstration
-            is_available = False # Change logic to parse real HTML
-            
-            if is_available:
-                self.logger.info(f"Slot found for {course_code}! Attempting to register...")
-                # Click register button in that row
-                # register_btn = row.find_element(By.XPATH, ".//button[contains(text(), 'Register')]")
-                # register_btn.click()
-                
-                # Handle popup confirmation
-                # try:
-                #     alert = self.driver.switch_to.alert
-                #     alert.accept()
-                # except:
-                #     pass
-                    
-                self.logger.info(f"Registration command sent for {course_code}. Verifying...")
-                # Add verification logic here
-                return True
-            else:
-                self.logger.debug(f"No slots for {course_code}.")
+                username_input = self.wait.until(EC.presence_of_element_located((By.ID, USERNAME_FIELD_ID)))
+                password_input = self.driver.find_element(By.ID, PASSWORD_FIELD_ID)
+            except TimeoutException:
+                logger.error("Could not find login fields. Please update USERNAME_FIELD_ID in bot.py")
                 return False
-                
+
+            username_input.send_keys(self.config["username"])
+            password_input.send_keys(self.config["password"])
+            
+            logger.info("Please complete the login manually in the browser window if needed (CAPTCHA, etc.).")
+            logger.info("Waiting for redirect to main page...")
+            
+            # Wait until URL changes or a specific element appears indicating login success
+            # Here we wait for a generic time or user confirmation for safety in this template
+            # Ideally, wait for "Log out" button
+            time.sleep(15) 
+            
+            # Extract cookies
+            selenium_cookies = self.driver.get_cookies()
+            for cookie in selenium_cookies:
+                self.cookies[cookie['name']] = cookie['value']
+            
+            logger.success(f"Login successful! Captured {len(self.cookies)} cookies.")
+            return True
+
         except Exception as e:
-            self.logger.error(f"Error checking/registering {course_code}: {e}")
+            logger.error(f"Selenium login failed: {e}")
             return False
-
-    def run(self):
-        """Main loop."""
-        try:
-            self.initialize_driver()
-            self.login()
-            
-            if not self.is_logged_in:
-                self.logger.error("Login failed. Exiting.")
-                return
-
-            self.navigate_to_registration()
-            
-            while True:
-                for course in self.config["target_courses"]:
-                    self.search_course(course["course_code"])
-                    if self.check_availability_and_register(course):
-                        self.logger.info(f"Successfully registered for {course['course_name']}! Removing from list.")
-                        self.config["target_courses"].remove(course)
-                        if not self.config["target_courses"]:
-                            self.logger.info("All courses registered! Exiting.")
-                            return
-                    
-                    # Random delay between courses
-                    time.sleep(random.uniform(0.5, 1.5))
-                
-                # Wait before next cycle
-                wait_time = self.config["refresh_interval"] + random.uniform(0, 2)
-                self.logger.info(f"Waiting {wait_time:.2f}s before next scan...")
-                time.sleep(wait_time)
-                
-                # Refresh page periodically to keep session alive or reset state
-                # self.driver.refresh()
-                
-        except KeyboardInterrupt:
-            self.logger.info("Bot stopped by user.")
-        except Exception as e:
-            self.logger.critical(f"Unexpected error: {e}")
         finally:
             if self.driver:
                 self.driver.quit()
+
+class AsyncSugangBot:
+    """High-performance async bot using aiohttp."""
+    def __init__(self, config, cookies):
+        self.config = config
+        self.cookies = cookies
+        self.session = None
+        self.ua = UserAgent()
+        self.ntp = TimeSynchronizer()
+        self.base_url = "https://sugang.korea.ac.kr" # Update if API is different
+        
+        # Concurrency settings
+        self.conc_config = config.get("concurrency", {})
+        self.net_config = config.get("network", {})
+        
+    async def init_session(self):
+        """Initializes aiohttp session with connection pooling."""
+        connector = aiohttp.TCPConnector(limit=100, ttl_dns_cache=300)
+        self.session = aiohttp.ClientSession(
+            cookies=self.cookies,
+            connector=connector,
+            headers={"User-Agent": self.ua.random}
+        )
+        # Pre-warm connection
+        try:
+            await self.session.get(self.base_url)
+            logger.info("Connection pool warmed up.")
+        except:
+            pass
+
+    async def close(self):
+        if self.session:
+            await self.session.close()
+
+    def get_headers(self):
+        """Generates dynamic headers to avoid detection."""
+        return {
+            "User-Agent": self.ua.random,
+            "Referer": "https://sugang.korea.ac.kr/",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "X-Requested-With": "XMLHttpRequest",
+            # Add other static headers here
+        }
+
+    async def register_course(self, course, attempt_id):
+        """
+        Sends a single registration request.
+        TODO: You MUST inspect the Network tab in DevTools to find:
+        1. The exact Request URL for registration.
+        2. The Request Method (POST/GET).
+        3. The Form Data / JSON Payload.
+        """
+        
+        # --- PLACEHOLDER URL & DATA ---
+        # Example: https://sugang.korea.ac.kr/sugang/register.do
+        url = f"{self.base_url}/core/service/sugang/register" 
+        
+        payload = {
+            "course_code": course["course_code"],
+            # "token": "...", # Some sites require a CSRF token
+            # ... add other required fields from config or hardcoded
+        }
+        # ------------------------------
+
+        start_time = time.time()
+        
+        # Jitter
+        if self.net_config.get("jitter_min"):
+            await asyncio.sleep(random.uniform(
+                self.net_config["jitter_min"], 
+                self.net_config["jitter_max"]
+            ))
+
+        try:
+            async with self.session.post(url, data=payload, headers=self.get_headers()) as response:
+                latency = (time.time() - start_time) * 1000
+                status = response.status
+                
+                # Try to parse response
+                try:
+                    resp_text = await response.text()
+                    # resp_json = await response.json() 
+                except:
+                    resp_text = "No Content"
+
+                log_msg = f"| Attempt: {attempt_id} | Status: {status} | Latency: {latency:.2f}ms | Course: {course['course_code']}"
+                
+                if status == 200 and "success" in resp_text.lower(): # Adjust success condition
+                    logger.success(f"SUCCESS! {log_msg}")
+                    return True
+                elif status == 503:
+                    logger.warning(f"Server Overload {log_msg}")
+                else:
+                    logger.info(f"Failed {log_msg}")
+                    
+                return False
+
+        except Exception as e:
+            logger.error(f"Request Error: {e}")
+            return False
+
+    async def burst_attack(self):
+        """Orchestrates the high-concurrency attack."""
+        await self.init_session()
+        
+        # NTP Sync
+        self.ntp.sync()
+        
+        # Wait for target time if configured
+        target_str = self.conc_config.get("target_time")
+        if target_str:
+            target_ts = time.mktime(time.strptime(target_str, "%Y-%m-%d %H:%M:%S"))
+            # Start slightly earlier (burst_start_ms)
+            start_ts = target_ts - (self.conc_config.get("burst_start_ms", 0) / 1000.0)
+            
+            wait_seconds = start_ts - self.ntp.get_time()
+            if wait_seconds > 0:
+                logger.info(f"Waiting {wait_seconds:.2f}s for target time...")
+                await asyncio.sleep(wait_seconds)
+            else:
+                logger.warning("Target time passed! Starting immediately.")
+
+        logger.info("🚀 STARTING BURST MODE 🚀")
+        
+        tasks = []
+        task_id = 0
+        
+        # Infinite loop or limited attempts
+        # Here we demonstrate a continuous wave
+        while True:
+            for course in self.config["target_courses"]:
+                # Batch creation
+                batch_size = self.conc_config.get("max_tasks", 5)
+                
+                # Create a batch of concurrent tasks
+                batch = []
+                for _ in range(batch_size):
+                    task_id += 1
+                    batch.append(self.register_course(course, task_id))
+                
+                # Execute batch
+                results = await asyncio.gather(*batch)
+                
+                if any(results):
+                    logger.success("Course registered! Stopping bot.")
+                    return
+            
+            # Small delay between batches to avoid total IP ban
+            await asyncio.sleep(self.net_config.get("retry_delay_base", 0.1))
+
+        await self.close()

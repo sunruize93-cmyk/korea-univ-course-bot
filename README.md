@@ -1,9 +1,19 @@
-# Korea University Course Registration Bot (KUPID Auto-Register)
+# Korea University Course Registration Bot (Sugang Auto-Register)
 
-Automated Python script for monitoring and registering for courses on the Korea University Portal (KUPID).
+Automated Python script for monitoring and registering for courses on the Korea University Course Registration System (Sugang).
 
-## ⚠️ Disclaimer & Warning
-**Use at your own risk.** Automated course registration scripts may violate Korea University's IT policies or Student Code of Conduct. Excessive requests can lead to IP bans or account suspension. This tool is for educational purposes only.
+## 📢 Manifesto (初心)
+
+**"We all pay the same tuition. We deserve to take the classes we actually want."**
+
+Let's be real: course registration shouldn't be a lottery based on who has the fastest click speed or the lowest ping. It feels unfair when you can't get into a class you need just because the server lagged for a second.
+
+This tool is designed to **level the playing field**. It's not about hacking; it's about automating the boring stuff so you can get the education you paid for.
+
+### ⚠️ Heads Up (风险提示)
+With great power comes great responsibility.
+*   **Don't be reckless**: If you spam the server too hard, you *will* get blocked.
+*   **Use common sense**: I wrote this code to help you, but I can't take the fall if the school admin gets mad. Use it wisely, grab your courses, and enjoy your semester.
 
 ## Features
 - **Automated Login**: Handles credential entry (supports manual CAPTCHA solving).
@@ -27,7 +37,7 @@ Automated Python script for monitoring and registering for courses on the Korea 
 ## Configuration
 
 1. Open `config.json`.
-2. Enter your KUPID credentials:
+2. Enter your Portal ID and password (same as KUPID):
    ```json
    "username": "2023123456",
    "password": "your_password"
@@ -44,11 +54,11 @@ Automated Python script for monitoring and registering for courses on the Korea 
 4. Adjust `refresh_interval` (default 3 seconds). **Do not set this too low** to avoid being blocked.
 
 ## 🛠️ CRITICAL: Selector Setup
-Since KUPID's internal HTML structure changes and is not publicly accessible without a student account, **you must update the CSS selectors in `bot.py`**.
+Since the Sugang system's internal HTML structure changes and is not publicly accessible without a student account, **you must update the CSS selectors in `bot.py`**.
 
 1. Open `bot.py`.
 2. Search for `TODO: UPDATE THESE SELECTORS`.
-3. Go to KUPID in your Chrome browser, right-click the input fields (ID, Password, Search Box, etc.), and select **Inspect**.
+3. Go to https://sugang.korea.ac.kr in your Chrome browser, right-click the input fields (ID, Password, Search Box, etc.), and select **Inspect**.
 4. Find the `id` or `name` attribute of the elements and update the Python code accordingly.
    - Example: If the ID input has `<input id="login_id" ...>`, change `USERNAME_FIELD_ID = "id"` to `USERNAME_FIELD_ID = "login_id"`.
 
